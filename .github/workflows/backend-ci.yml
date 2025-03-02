@@ -1,19 +1,34 @@
 name: Backend CI
+
 on: [push]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
+      # Step 1: Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v3
+
+      # Step 2: Set up Node.js environment
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 16
-      - name: Install Dependencies
+
+      # Step 3: Clean and install dependencies
+      - name: Clean and install dependencies
         run: |
           cd api
+          rm -rf node_modules  # Remove any pre-existing node_modules
           npm install
+
+      # Step 4: Fix permissions for Jest binary
+      - name: Fix permissions on Jest binary
+        run: chmod +x ./node_modules/.bin/jest
+
+      # Step 5: Run tests
       - name: Run Tests
         run: |
           cd api
