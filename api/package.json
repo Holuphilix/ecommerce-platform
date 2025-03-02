@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-  "test": "npx jest"  },
+    "test": "./node_modules/.bin/jest"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
