@@ -378,9 +378,19 @@ jobs:
 
 - **Stage Your Changes:** Once you've made the changes, stage the files you modified. You can add them individually, or if you've only changed the slide image, you can stage everything with.
 
+```sh
+git add .
+```
+
+**Screenshot:** Stage Changes
+![Stage Changes](./Images/9.git_add.png)
+
 - **Commit Your Changes:** After staging, commit your changes with a clear message describing the update.
 
-- **Push Changes to Remote Development Branch:** Push your changes to the remote development branch to keep everything updated.
+**Screenshot:** Commit Changes
+![Stage Changes](./)
+
+- **Push Changes to Remote Main Branch:** Push your changes to the remote main branch to keep everything updated.
 
 ## 📷 Screenshots
 Place screenshots here:
