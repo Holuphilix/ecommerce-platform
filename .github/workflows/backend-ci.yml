@@ -24,9 +24,11 @@ jobs:
           rm -rf node_modules  # Remove any pre-existing node_modules
           npm install
 
-      # Step 4: Fix permissions for Jest binary
-      - name: Fix permissions on Jest binary
-        run: chmod +x ./node_modules/.bin/jest
+      # Step 4: Verify Jest is installed
+      - name: Verify Jest installation
+        run: |
+          cd api
+          ls -alh node_modules/.bin  # List files in the .bin directory to confirm Jest is installed
 
       # Step 5: Run tests
       - name: Run Tests
