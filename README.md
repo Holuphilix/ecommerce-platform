@@ -379,8 +379,6 @@ jobs:
 - **Stage Your Changes:** Once you've made the changes, stage the files you modified. You can add them individually, or if you've only changed the slide image, you can stage everything with.
 
 ```sh
-git add .
-```
 
 **Screenshot:** Stage Changes
 ![Stage Changes](./Images/9.git_add.png)
