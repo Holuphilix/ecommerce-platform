@@ -3,14 +3,14 @@ name: Deploy to AWS EC2
 on:
   push:
     branches:
-      - main   # Trigger the workflow when there are changes pushed to the `main` branch
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
+      # Step 1: Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -30,6 +30,7 @@ jobs:
       - name: Run tests
         run: |
           cd api
+          chmod +x ./node_modules/.bin/jest  # Make sure jest is executable
           npm test
 
       # Step 5: Log in to Docker Hub
