@@ -14,11 +14,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up Node.js (Updated to 20)
+      # Step 2: Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '16'
 
       # Step 3: Install dependencies
       - name: Install dependencies
@@ -26,19 +26,19 @@ jobs:
           cd api
           npm install
 
-      # Step 4: Run tests (Fixed Jest permissions)
+      # Step 4: Run tests
       - name: Run tests
         run: |
           cd api
-          npx jest
+          chmod +x ./node_modules/.bin/jest  # Make sure jest is executable
+          npm test
 
-      # Step 5: Log in to Docker Hub (Fixed logout issue)
+      # Step 5: Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
-          logout: true
 
       # Step 6: Build Docker images
       - name: Build Docker images
@@ -46,24 +46,13 @@ jobs:
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest ./api
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest ./webapp
 
-      # Step 7: Push Docker images to Docker Hub (Fix token permissions)
+      # Step 7: Push Docker images to Docker Hub
       - name: Push Docker images
         run: |
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest
 
-      # Step 8: Debug SSH connection before deployment
-      - name: Debug SSH Connection
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          script: |
-            whoami
-            ls -la
-
-      # Step 9: Install Docker on EC2 if not installed
+      # Step 8: Install Docker on EC2 if not installed
       - name: Install Docker on EC2 if not installed
         uses: appleboy/ssh-action@v0.1.10
         with:
@@ -78,7 +67,7 @@ jobs:
               sudo systemctl enable docker
             fi
 
-      # Step 10: Deploy to AWS EC2
+      # Step 9: Deploy to AWS EC2 via SSH
       - name: Deploy to AWS EC2
         uses: appleboy/ssh-action@v0.1.10
         with:
