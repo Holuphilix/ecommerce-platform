@@ -10,69 +10,62 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # Step 2: Set up Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '20'
 
-      # Step 3: Install dependencies
       - name: Install dependencies
         run: |
           cd api
           npm install
 
-      # Step 4: Run tests
       - name: Run tests
         run: |
           cd api
-          chmod +x ./node_modules/.bin/jest  # Make sure jest is executable
+          chmod +x ./node_modules/.bin/jest
           npm test
 
-      # Step 5: Log in to Docker Hub
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
 
-      # Step 6: Build Docker images
       - name: Build Docker images
         run: |
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest ./api
           docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest ./webapp
 
-      # Step 7: Push Docker images to Docker Hub
-      - name: Push Docker images
+      - name: Push Docker images to Docker Hub
         run: |
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest
           docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest
 
-      # Step 8: Install Docker on EC2 if not installed
       - name: Install Docker on EC2 if not installed
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu  # Fix user
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             if ! command -v docker &> /dev/null; then
               echo "Docker not found, installing..."
-              sudo apt install -y docker
-              sudo service docker start
+              sudo apt update
+              sudo apt install -y docker.io
+              sudo systemctl start docker
               sudo systemctl enable docker
+              sudo usermod -aG docker ubuntu  # Allow non-root Docker access
             fi
 
-      # Step 9: Deploy to AWS EC2 via SSH
       - name: Deploy to AWS EC2
         uses: appleboy/ssh-action@v0.1.10
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
+          username: ubuntu  # Fix user
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
           script: |
             # Stop and remove old containers
@@ -80,11 +73,19 @@ jobs:
             docker stop ecommerce-frontend || true
             docker rm ecommerce-backend || true
             docker rm ecommerce-frontend || true
+
+            # Create a network for containers to communicate
+            docker network create ecommerce-network || true
             
-            # Pull new Docker images from Docker Hub
+            # Pull new Docker images
             docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest
             docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest
             
-            # Run the new Docker containers with environment variables
-            docker run -d -p 5000:5000 --name ecommerce-backend -e API_SECRET_KEY=${{ secrets.API_SECRET_KEY }} ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest
-            docker run -d -p 3000:3000 --name ecommerce-frontend ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest
+            # Run backend container
+            docker run -d --name ecommerce-backend --network ecommerce-network -p 5000:5000 \
+              -e API_SECRET_KEY=${{ secrets.API_SECRET_KEY }} \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest
+            
+            # Run frontend container
+            docker run -d --name ecommerce-frontend --network ecommerce-network -p 3000:3000 \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest
