@@ -18,7 +18,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
+          node-version: '20'
 
       # Step 3: Install dependencies
       - name: Install dependencies
@@ -62,7 +62,7 @@ jobs:
           script: |
             if ! command -v docker &> /dev/null; then
               echo "Docker not found, installing..."
-              sudo yum install -y docker
+              sudo apt install -y docker
               sudo service docker start
               sudo systemctl enable docker
             fi
