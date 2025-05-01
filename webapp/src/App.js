@@ -6,7 +6,7 @@ function App() {
       .then(response => response.text())
       .then(data => setMessage(data));
   }, []);
-  return <h1>{message}</h1>;
+  return <h1>Welcome to E-commerce Platform</h1>;
 }
 export default App;
 

@@ -7,30 +7,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      # Step 2: Set up Node.js environment
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
+          cache: 'npm'  # ✅ Caching dependencies
 
-      # Step 3: Clean and install dependencies
       - name: Clean and install dependencies
         run: |
           cd api
-          rm -rf node_modules  # Remove any pre-existing node_modules
-          npm install
+          rm -rf node_modules
+          npm ci  # ✅ Cleaner install using lock file
 
-      # Step 4: Verify Jest is installed
       - name: Verify Jest installation
         run: |
           cd api
-          ls -alh node_modules/.bin  # List files in the .bin directory to confirm Jest is installed
+          ls -alh node_modules/.bin
 
-      # Step 5: Run tests
       - name: Run Tests
         run: |
           cd api

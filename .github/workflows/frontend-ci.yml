@@ -1,19 +1,26 @@
 name: Frontend CI
+
 on: [push]
+
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 20
+          cache: 'npm'  # ✅ Caching node_modules
+
       - name: Install Dependencies
         run: |
           cd webapp
-          npm install
+          npm ci  # ✅ Safer install for CI
+
       - name: Build Application
         run: |
           cd webapp
