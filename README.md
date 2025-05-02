@@ -101,15 +101,24 @@ npm start
 
 ```javascript
 import React, { useEffect, useState } from 'react';
+
 function App() {
   const [message, setMessage] = useState('');
+
   useEffect(() => {
     fetch('http://localhost:5000/')
       .then(response => response.text())
       .then(data => setMessage(data));
   }, []);
-  return <h1>Welcome to E-commerce Platform</h1>;
+
+  return (
+    <div>
+      <h1>Welcome to E-commerce Platform</h1>
+      <p>{message}</p> {/* ✅ Now using `message` */}
+    </div>
+  );
 }
+
 export default App;
 ```
 **Screenshot:** Modify App.js 
@@ -129,50 +138,58 @@ http://localhost:3000
 
 ```yaml
 name: Backend CI
+
 on: [push]
+
 jobs:
-  test:
+  backend-test:
+    name: Backend Tests
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
-      - name: Install Dependencies
-        run: |
-          cd api
-          npm install
-      - name: Run Tests
-        run: |
-          cd api
-          npm test
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Install Backend Dependencies
+        run: npm ci
+        working-directory: api
+
+      - name: Run Backend Tests
+        run: npm test
+        working-directory: api
 ```
 
 #### **Create a CI Workflow for Frontend (`.github/workflows/frontend-ci.yml`)**
 
 ```yaml
-name: Frontend CI
-on: [push]
-jobs:
-  test:
+name: Frontend Build
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
+
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: 16
-      - name: Install Dependencies
-        run: |
-          cd webapp
-          npm install
-      - name: Build Application
-        run: |
-          cd webapp
-          npm run build
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: webapp/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: npm ci
+        working-directory: webapp
+
+      - name: Build Frontend Application
+        run: npm run build
+        working-directory: webapp
 ```
 
 ### Task 6️⃣: 🐳 Docker Integration
@@ -301,157 +318,12 @@ jobs:
 - This task automates the deployment process, configuring GitHub Actions to automatically deploy updates to the AWS EC2 instance whenever changes are pushed to the main branch, ensuring continuous delivery of the latest code.
 
 ```yaml
-name: Deploy to AWS EC2
-
-on:
-  push:
-    branches:
-      - main   # Trigger the workflow when there are changes pushed to the `main` branch
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      # Step 1: Checkout the repository
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      # Step 2: Set up Node.js
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-
-      # Step 3: Install dependencies
-      - name: Install dependencies
-        run: |
-          cd api
-          npm install
-
-      # Step 4: Run tests
-      - name: Run tests
-        run: |
-          cd api
-          npm test
-
-      # Step 5: Log in to Docker Hub
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }}
-
-      # Step 6: Build Docker images
-      - name: Build Docker images
-        run: |
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest ./api
-          docker build -t ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest ./webapp
-
-      # Step 7: Push Docker images to Docker Hub
-      - name: Push Docker images
-        run: |
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest
-          docker push ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest
-
-      # Step 8: Install Docker on EC2 if not installed
-      - name: Install Docker on EC2 if not installed
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          script: |
-            if ! command -v docker &> /dev/null; then
-              echo "Docker not found, installing..."
-              sudo yum install -y docker
-              sudo service docker start
-              sudo systemctl enable docker
-            fi
-
-      # Step 9: Deploy to AWS EC2 via SSH
-      - name: Deploy to AWS EC2
-        uses: appleboy/ssh-action@v0.1.10
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
-          script: |
-            # Stop and remove old containers
-            docker stop ecommerce-backend || true
-            docker stop ecommerce-frontend || true
-            docker rm ecommerce-backend || true
-            docker rm ecommerce-frontend || true
-            
-            # Pull new Docker images from Docker Hub
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest
-            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest
-            
-            # Run the new Docker containers with environment variables
-            docker run -d -p 5000:5000 --name ecommerce-backend -e API_SECRET_KEY=${{ secrets.API_SECRET_KEY }} ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-backend:latest
-            docker run -d -p 3000:3000 --name ecommerce-frontend ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-frontend:latest
-```
-
-### Task 9️⃣: Performance and Security 🔒
-
-In this task, we focus on improving the performance of our CI/CD workflows and securing sensitive information such as API keys, passwords, and database URLs. The workflow is optimized by leveraging caching to reduce redundant work, which significantly improves execution times, especially in continuous integration pipelines. Additionally, sensitive data is stored securely using GitHub Secrets to prevent exposing it in the workflow.
-
-#### 9.1 Caching in GitHub Actions
-
-Caching in GitHub Actions optimizes build times by saving and reusing dependencies, Docker layers, and test results. This caching mechanism helps speed up the workflow and reduces unnecessary builds, which is crucial for CI pipelines.
-
-To implement caching, we use the `actions/cache` action for caching Docker layers and other dependencies.
-
-```yaml
-# Cache Docker layers to speed up builds
-- name: Cache Docker Layers
-  uses: actions/cache@v3
-  with:
-    path: /tmp/.buildx-cache
-    key: ${{ runner.os }}-buildx-${{ github.sha }}
-    restore-keys: |
-      ${{ runner.os }}-buildx-
-```
-
-This caching step will reuse the layers from previous builds unless there's a change in the commit, helping to speed up Docker builds by not re-building unchanged layers.
-
-#### 9.2 Securing Sensitive Information
-
-All sensitive data, including API keys, database credentials, and passwords, is secured using **GitHub Secrets**. Secrets are environment variables that are encrypted and can be used within workflows without exposing sensitive data in plain text.
-
-For example, we securely handle Docker Hub credentials, SSH keys, and environment variables for the deployed application:
-
-- **SSH Key** for deploying to EC2
-- **Docker Hub Credentials** for authenticating and pushing Docker images
-- **API Secrets** for accessing API keys securely
-
-The secrets are stored in GitHub repository settings and accessed in workflows using `${{ secrets.SECRET_NAME }}`.
-
-```yaml
-# Example of using secrets in the workflow
-- name: Set up SSH
-  uses: webfactory/ssh-agent@v0.5.3
-  with:
-    ssh-private-key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
-
-- name: Log in to Docker Hub
-  uses: docker/login-action@v2
-  with:
-    username: ${{ secrets.DOCKER_HUB_USERNAME }}
-    password: ${{ secrets.DOCKER_HUB_TOKEN }}
-```
-
-#### 9.3 Full Workflow Example
-
-Here is the updated and optimized `deploy.yml` workflow that includes both caching and secure handling of sensitive information:
-
-```yaml
 name: Deploy to AWS EC2 with DockerHub
 
 on:
   push:
     branches:
-      - main  # Deploys automatically on push to main
+      - main
 
 jobs:
   deploy:
@@ -461,7 +333,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Implement caching to speed up builds
       - name: Cache Docker Layers
         uses: actions/cache@v3
         with:
@@ -470,57 +341,136 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      # Set up SSH authentication securely
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
-          ssh-private-key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
-      # Deploy to EC2 instance
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             echo "🔹 Connecting to EC2 Instance"
 
-            # Authenticate DockerHub securely
-            echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
 
-            # Pull latest backend API image
             echo "🚀 Pulling latest API image..."
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-api:latest
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-api:latest
 
-            # Stop and remove existing API container
             docker stop ecommerce-api || true
             docker rm ecommerce-api || true
 
-            # Run API container securely with environment variables
             echo "✅ Running new API container..."
             docker run -d --name ecommerce-api -p 5000:5000 \
-              -e API_SECRET=${{ secrets.API_SECRET }} \
-              ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-api:latest
+              -e API_SECRET_KEY=${{ secrets.API_SECRET_KEY }} \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-api:latest
 
-            # Pull latest frontend web image
             echo "🚀 Pulling latest WebApp image..."
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-web:latest
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-web:latest
 
-            # Stop and remove existing WebApp container
             docker stop ecommerce-web || true
             docker rm ecommerce-web || true
 
-            # Run WebApp container securely with environment variables
             echo "✅ Running new WebApp container..."
             docker run -d --name ecommerce-web -p 3000:3000 \
-              -e API_BASE_URL=${{ secrets.API_BASE_URL }} \
-              ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-web:latest
+              -e API_BASE_URL=http://localhost:5000 \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-web:latest
 
-            # Final message after deployment
             echo "🚀 Deployment Completed Successfully!"
           EOF
 ```
 
-#### 9.4 Key Benefits:
-- **Performance Improvements**: The caching of Docker layers reduces redundant work, speeding up the CI pipeline and improving build times.
-- **Security**: GitHub Secrets ensure that sensitive information, such as credentials and API keys, is never exposed in the workflow files or logs.
+### Step 9️⃣: Performance and Security 🔒
+
+To ensure **faster workflows** and **secure deployments**, I optimized the CI/CD pipeline and protected sensitive data using the following strategies:
+
+#### ⚡ Performance Optimization
+
+- **Dependency Caching**:  
+  I implemented caching mechanisms in GitHub Actions to store Docker build layers using `actions/cache`. This significantly reduces build time by avoiding redundant image rebuilds.
+
+- **Parallel Job Execution**:  
+  The CI pipeline is split into jobs (e.g., backend tests, frontend build), which run in parallel to shorten feedback loops.
+
+#### 🔐 Security Enhancements
+
+- **GitHub Secrets**:  
+  Sensitive data like API keys, DockerHub credentials, and SSH keys are stored securely using GitHub Secrets. This avoids exposing credentials in code or logs.
+
+| Secret Name              | Purpose                                  |
+|--------------------------|------------------------------------------|
+| `EC2_SSH_PRIVATE_KEY`    | SSH key for EC2 authentication           |
+| `EC2_HOST`               | Public IP of the EC2 instance            |
+| `DOCKER_HUB_USERNAME`    | DockerHub username                       |
+| `DOCKER_HUB_TOKEN`       | DockerHub access token                   |
+| `API_SECRET_KEY`         | Secret key used by backend API           |
+
+#### 🛠 Deployment Workflow with Caching
+
+The deployment process also uses Docker layer caching to speed up image pulls and builds:
+
+```yaml
+name: Deploy to AWS EC2 with DockerHub
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Cache Docker Layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.5.3
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
+      - name: Deploy to EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            echo "🔹 Connecting to EC2 Instance"
+
+            echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
+
+            echo "🚀 Pulling latest API image..."
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-api:latest
+
+            docker stop ecommerce-api || true
+            docker rm ecommerce-api || true
+
+            echo "✅ Running new API container..."
+            docker run -d --name ecommerce-api -p 5000:5000 \
+              -e API_SECRET_KEY=${{ secrets.API_SECRET_KEY }} \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-api:latest
+
+            echo "🚀 Pulling latest WebApp image..."
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-web:latest
+
+            docker stop ecommerce-web || true
+            docker rm ecommerce-web || true
+
+            echo "✅ Running new WebApp container..."
+            docker run -d --name ecommerce-web -p 3000:3000 \
+              -e API_BASE_URL=http://localhost:5000 \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-web:latest
+
+            echo "🚀 Deployment Completed Successfully!"
+          EOF
+```
+
+-✅ With performance improvements and secret management in place, this CI/CD pipeline is secure, efficient, and production-ready.
 
 ### Task 🔟: Project Documentation
 
@@ -544,41 +494,6 @@ The documentation includes the following sections:
 - **Screenshots & Logs** – Optional visuals and logs for reference.
 - **Version Control** – Best practices and commands used with Git.
 
-### 💻 Local Development Setup
-
-To run the project locally:
-
-```bash
-# Clone the repository
-git clone https://github.com/your-username/your-repo.git
-cd your-repo
-
-# Backend setup
-cd backend
-npm install
-npm run dev
-
-# Frontend setup
-cd ../frontend
-npm install
-npm start
-```
-
-To run with Docker locally:
-
-```bash
-# Build backend
-docker build -t ecommerce-api -f Dockerfile .
-
-# Run backend
-docker run -d -p 5000:5000 ecommerce-api
-
-# Build frontend
-docker build -t ecommerce-web -f Dockerfile.web .
-
-# Run frontend
-docker run -d -p 3000:3000 ecommerce-web
-```
 ### Version Control with Git
 
 After cloning the GitHub repository in **Task 1**, version control was used to track and manage code changes using Git.
@@ -594,7 +509,7 @@ After cloning the GitHub repository in **Task 1**, version control was used to t
 2. **Commit Changes**  
    Descriptive commit messages were used to reflect the purpose of the changes:
    ```bash
-   git commit -m "feat: completed Docker and CI/CD deployment setup"
+   git commit -m "Update README with Deployment, Performance, and Security details"
    ```
 
 3. **Push to Remote Repository**  
