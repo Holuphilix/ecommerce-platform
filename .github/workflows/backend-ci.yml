@@ -14,20 +14,12 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'  # ✅ Caching dependencies
+          cache: 'npm'
 
-      - name: Clean and install dependencies
-        run: |
-          cd api
-          rm -rf node_modules
-          npm ci  # ✅ Cleaner install using lock file
-
-      - name: Verify Jest installation
-        run: |
-          cd api
-          ls -alh node_modules/.bin
+      - name: Install Dependencies
+        run: npm ci
+        working-directory: api
 
       - name: Run Tests
-        run: |
-          cd api
-          npm test
+        run: npm test
+        working-directory: api

@@ -3,7 +3,7 @@ name: Deploy to AWS EC2 with DockerHub
 on:
   push:
     branches:
-      - main  # Deploys automatically on push to main
+      - main
 
 jobs:
   deploy:
@@ -13,7 +13,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v3
 
-      # Implement caching to speed up builds
       - name: Cache Docker Layers
         uses: actions/cache@v3
         with:
@@ -22,49 +21,39 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      # Set up SSH authentication securely
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.5.3
         with:
-          ssh-private-key: ${{ secrets.AWS_SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
 
-      # Deploy to EC2 instance
       - name: Deploy to EC2
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             echo "🔹 Connecting to EC2 Instance"
 
-            # Authenticate DockerHub securely
-            echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            echo "${{ secrets.DOCKER_HUB_TOKEN }}" | docker login -u "${{ secrets.DOCKER_HUB_USERNAME }}" --password-stdin
 
-            # Pull latest backend API image
             echo "🚀 Pulling latest API image..."
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-api:latest
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-api:latest
 
-            # Stop and remove existing API container
             docker stop ecommerce-api || true
             docker rm ecommerce-api || true
 
-            # Run API container securely with environment variables
             echo "✅ Running new API container..."
             docker run -d --name ecommerce-api -p 5000:5000 \
-              -e API_SECRET=${{ secrets.API_SECRET }} \
-              ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-api:latest
+              -e API_SECRET_KEY=${{ secrets.API_SECRET_KEY }} \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-api:latest
 
-            # Pull latest frontend web image
             echo "🚀 Pulling latest WebApp image..."
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-web:latest
+            docker pull ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-web:latest
 
-            # Stop and remove existing WebApp container
             docker stop ecommerce-web || true
             docker rm ecommerce-web || true
 
-            # Run WebApp container securely with environment variables
             echo "✅ Running new WebApp container..."
             docker run -d --name ecommerce-web -p 3000:3000 \
-              -e API_BASE_URL=${{ secrets.API_BASE_URL }} \
-              ${{ secrets.DOCKERHUB_USERNAME }}/ecommerce-web:latest
+              -e API_BASE_URL=http://localhost:5000 \
+              ${{ secrets.DOCKER_HUB_USERNAME }}/ecommerce-web:latest
 
-            # Final message after deployment
             echo "🚀 Deployment Completed Successfully!"
           EOF

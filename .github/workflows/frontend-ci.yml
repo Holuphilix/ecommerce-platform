@@ -14,14 +14,17 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 20
-          cache: 'npm'  # ✅ Caching node_modules
+          cache: 'npm'
 
       - name: Install Dependencies
-        run: |
-          cd webapp
-          npm ci  # ✅ Safer install for CI
+        run: npm ci
+        working-directory: webapp
 
       - name: Build Application
-        run: |
-          cd webapp
-          npm run build
+        run: npm run build
+        working-directory: webapp
+
+      # Optional: Run tests
+      # - name: Run Frontend Tests
+      #   run: npm test -- --watchAll=false
+      #   working-directory: webapp
